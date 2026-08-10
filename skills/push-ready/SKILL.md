@@ -40,6 +40,11 @@ If unspecified: use `review` when there is a local diff / dirty tree; else `buil
 5. After all slices: do an **integration pass** — how parts compose, shared state,
    ordering, error propagation, idempotency.
 6. Do not expand scope. Review/build only what the feature requires.
+7. Read project `AGENTS.md` **once** per push-ready session (see Step 0b) and use
+   it as a verification checklist — do not re-read it on every slice unless it
+   changes.
+8. Always check **consistency with the existing codebase**, not only internal
+   consistency of the new diff.
 
 ## Step 0 — Recover the requirement
 
@@ -59,6 +64,37 @@ Sources (use what exists):
 
 If intent is unclear, ask **one** clarifying question, then proceed with an
 explicit assumption list.
+
+## Step 0b — AGENTS.md verification (once)
+
+Early in the session, **once**:
+
+1. Find and read `AGENTS.md` at the repo root (or the path `CLAUDE.md` /
+   other agent docs point to). If missing, note that and continue with repo
+   conventions you can observe.
+2. Extract a short checklist of rules that apply to this change (architecture
+   boundaries, testing commands, layering, style, “do not touch X”, etc.).
+3. Keep that checklist for the rest of the session. Verify each slice and the
+   integration pass against it. Flag violations as findings
+   (`[high]`/`[medium]` depending on severity).
+
+Do **not** re-open `AGENTS.md` on every slice unless the user updates it or you
+discover you used the wrong file.
+
+## Consistency with existing codebase
+
+For every slice (and again in the integration pass), compare new code to what
+already exists nearby:
+
+- Same patterns for errors, logging, auth, transactions, retries, IDs?
+- Naming, module placement, and layering match neighbors (e.g. app vs infra)?
+- Reuses existing helpers/types/services instead of parallel reimplementation?
+- Types/status enums/API shapes agree with callers and callees outside the diff?
+- Migrations/schema match how the rest of the DB layer is written?
+- Tests follow existing fixtures and style?
+
+Inconsistencies that will confuse maintainers or break invariants are findings,
+even if the new code “works” in isolation.
 
 ## Mode: `review` (existing generated / uncommitted code)
 
@@ -94,10 +130,12 @@ Present the slice plan to the user, then review **one slice at a time**.
 For each slice:
 
 1. Summarize what this slice is supposed to do (tied to the requirement).
-2. Read the code carefully (not skim).
-3. Check **normal cases**: expected inputs, typical control flow, return shapes,
+2. Read the code carefully (not skim). Also read enough **existing** neighboring
+   code (callers, callees, similar modules) to judge consistency.
+3. Check against the **AGENTS.md checklist** from Step 0b.
+4. Check **normal cases**: expected inputs, typical control flow, return shapes,
    status codes, persistence that should happen.
-4. Check **edge cases / failure modes** (always; invent concrete ones):
+5. Check **edge cases / failure modes** (always; invent concrete ones):
    - empty/null/missing fields
    - duplicates / retries / double-submit
    - concurrency / ordering
@@ -106,8 +144,10 @@ For each slice:
    - timeouts, cancellation, idempotency
    - off-by-one, wrong comparison, inverted boolean
    - error swallowed or wrong exception type
-5. Report findings for **this slice only** using the format below.
-6. Fix critical/high issues (or get user accept) before the next slice.
+6. Check **codebase consistency** (patterns, layering, duplication, contracts
+   with unchanged code).
+7. Report findings for **this slice only** using the format below.
+8. Fix critical/high issues (or get user accept) before the next slice.
 
 ### 3. Integration pass (required)
 
@@ -118,6 +158,8 @@ After every slice is clean enough:
 - End-to-end happy path: does the feature actually work as required?
 - End-to-end failure path: one failure shouldn’t corrupt state or double-apply.
 - Tests: do they cover the risky edges, or only the happy path?
+- Full-diff vs **existing codebase**: any remaining pattern/contract drift?
+- Final sweep of the **AGENTS.md** checklist — anything still violated?
 
 ### 4. Push-ready verdict
 
@@ -132,10 +174,10 @@ Use while implementing a feature:
 
 ```
 Build loop:
-- [ ] 1. State / refine requirement (Step 0)
+- [ ] 1. State / refine requirement (Step 0) + AGENTS.md once (Step 0b)
 - [ ] 2. Pick the SMALLEST next problem that unlocks progress
-- [ ] 3. Implement only that slice
-- [ ] 4. Run the per-slice review (normal + edge cases)
+- [ ] 3. Implement only that slice (match existing codebase patterns)
+- [ ] 4. Run the per-slice review (AGENTS.md + normal + edge + consistency)
 - [ ] 5. Fix findings
 - [ ] 6. Only then choose the next smallest problem
 - [ ] 7. When feature complete → integration pass → verdict
@@ -151,6 +193,12 @@ Do not draft the full feature in one shot and “review later.”
 ```markdown
 ### Slice: <name>
 Intent: <one line>
+
+AGENTS.md checks:
+- ...
+
+Codebase consistency:
+- ...
 
 Normal cases checked:
 - ...
@@ -180,6 +228,8 @@ Severity:
 - Only listing style/naming issues
 - Skipping happy-path reasoning (“looks fine”)
 - Skipping edge cases
+- Ignoring `AGENTS.md` or only checking the new files in isolation
+- Reimplementing utilities/patterns that already exist beside the change
 - Implementing the next slice while the current one still has open high+ findings
 - Rubber-stamping agent output because tests pass (tests may be shallow)
 

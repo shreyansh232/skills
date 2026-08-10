@@ -4,7 +4,7 @@ Personal agent skills (Claude Code, Codex, Cursor, and other [Agent Skills](http
 
 | Skill | Purpose |
 |-------|---------|
-| `push-ready` | Iterative review/build: small slices → review each (happy + edge) → integration → verdict |
+| `push-ready` | Iterative review/build: small slices → AGENTS.md + codebase consistency → happy/edge review → integration → verdict |
 
 ## Install
 
