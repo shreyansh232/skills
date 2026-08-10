@@ -143,6 +143,12 @@ If you catch yourself writing two abstract sentences in a row, add an example.
 | `eli5` | More analogy + even smaller steps; still use real names |
 | `just the flow` | Favor D + C happy path; still keep ≥2 examples |
 
+## Coordination
+
+- Whole system / architecture foundation → use **`codebase-explainer`**
+- Single module deep-dive → stay on **code-explainer**
+- Mid-tour zoom from a codebase chapter → `code-explainer` on one path, then return
+
 ## Anti-patterns
 
 - File-by-file narration with no first-principles problem statement
