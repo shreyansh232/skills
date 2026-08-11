@@ -5,7 +5,7 @@ Personal agent skills (Claude Code, Codex, Cursor, and other [Agent Skills](http
 | Skill | Purpose |
 |-------|---------|
 | `implement-feature` | Full pipeline: grill-me → spec → thin-slice (TDD) → plan → ponytail build + push-ready reviews |
-| `push-ready` | Iterative review/build: small slices → AGENTS.md + codebase consistency → happy/edge review → integration → verdict |
+| `push-ready` | High-signal review: slice-first + Standards/Spec axes + correctness/security/AI-slop lenses (Codex/Matt-Pocock-grade without needing theirs) |
 | `thin-slice` | Before a big feature: ship the smallest end-to-end working slice, then plan the rest from that reference |
 | `code-explainer` | First-principles walkthrough of a module with multiple examples and how it fits the whole codebase |
 | `codebase-explainer` | Whole-repo tour from the critical core outward: examples, snippets, and end-to-end API/job traces |
@@ -39,7 +39,7 @@ npx skills update -g
 ## Usage
 
 - `implement-feature <feature>` — clarify (grill-me) → spec → thin-slice TDD → plan with files-to-touch → ponytail implement + push-ready mid/final reviews
-- `push-ready` / `push-ready review` — uncommitted or existing generated code: recover intent, split into small parts, review one-by-one, then how they connect
+- `push-ready` / `push-ready review` / `push-ready since main` — slice-first review, then Standards vs Spec final gate (plus security/perf/AI-trap lenses)
 - `push-ready build` — while implementing: smallest slice → implement → review → only then continue
 - `thin-slice <feature>` — prove the smallest working end-to-end path first, then write the full implementation plan from it
 - `code-explainer <path-or-topic>` — break down a module from first principles with multiple examples and system fit

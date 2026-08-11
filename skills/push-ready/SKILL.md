@@ -1,213 +1,215 @@
 ---
 name: push-ready
 description: >-
-  Iterative code review for agent-generated work. Reviews small modules one at
-  a time (not one giant pass), then checks how pieces connect. Use for
-  uncommitted/local changes or while building a feature slice-by-slice. Use when
-  the user says push-ready, iterative review, review as you go, make this
-  push-ready, or wants tighter review than a single end-of-PR pass.
+  High-signal iterative code review that beats one-shot PR reviews. Splits
+  changes into small slices, then runs separated Standards vs Spec axes (plus
+  correctness/security/perf lenses). Use for uncommitted work, branch diffs,
+  agent-generated code, push-ready, code review, review since main, or make
+  this merge-ready.
 disable-model-invocation: true
-argument-hint: "review | build (optional)"
+argument-hint: "review | build | since <ref> (optional)"
 ---
 
 # Push-Ready
 
-Most one-shot reviews miss bugs in agent-generated code because they skim a
-large diff after everything already exists. This skill forces **small units**:
-understand intent → review (or build) one slice → only then move on → finally
-check how slices connect.
+One-shot reviews miss bugs because they skim a large agent diff in a polluted
+context. This skill combines:
 
-Works with any Agent Skills–compatible tool (Claude Code, Codex, Cursor, etc.).
+1. **Slice-first review** (your edge) — small modules, fix before moving on
+2. **Two-axis separation** (Matt Pocock–style) — **Standards** vs **Spec**, never
+   merged so one cannot mask the other
+3. **Multi-lens correctness** (Addy Osmani–style) — correctness, architecture,
+   security, performance, readability — high-signal only
+4. **Fresh-context passes** when sub-agents exist — reviewer does not inherit
+   the implementer’s rationalizations
+
+Works with Claude Code, Codex, Cursor, and other Agent Skills hosts.
+
+Deep checklists: [reference-lenses.md](reference-lenses.md).
 
 ## Modes
 
 | Mode | When | Behavior |
 |------|------|----------|
-| `review` | Code already exists (uncommitted, staged, or described) | Infer feature intent, split into small parts, review each, then integration |
-| `build` | Implementing a new feature with an agent | Smallest next problem → implement → review hard → only then next slice |
+| `review` | Existing dirty tree / branch / “since X” | Intent → slices → per-slice → integration → **two-axis** final |
+| `build` | Implementing now | Smallest slice → implement → review → next → two-axis final |
 
-If unspecified: use `review` when there is a local diff / dirty tree; else `build`.
+Default: `review` if there is a diff; else `build`.
+`push-ready since main` (or any ref) pins the fixed point explicitly.
 
 ## Hard rules
 
-1. **Never** review the entire feature as one blob first. Split first.
-2. Do not mark a slice done until its review findings are fixed or explicitly
-   accepted by the user.
-3. Every slice review must cover **happy-path / normal cases** and **edge cases**
-   where the code can fail or silently mess up.
-4. Prefer concrete bugs (wrong condition, missing await, race, leaky abstraction,
-   broken invariant) over style nits unless style breaks correctness/clarity.
-5. After all slices: do an **integration pass** — how parts compose, shared state,
-   ordering, error propagation, idempotency.
-6. Do not expand scope. Review/build only what the feature requires.
-7. Read project `AGENTS.md` **once** per push-ready session (see Step 0b) and use
-   it as a verification checklist — do not re-read it on every slice unless it
-   changes.
-8. Always check **consistency with the existing codebase**, not only internal
-   consistency of the new diff.
+1. **Split first.** Never start with one blob review of the whole feature.
+2. Do not advance past a slice with open **critical/high** findings unless the
+   user explicitly accepts the risk.
+3. Every slice checks **happy path** and **edge/failure** cases with concrete
+   examples (not vibes).
+4. Prefer **bugs and regressions** over style. Skip anything formatters/linters
+   already enforce.
+5. Read `AGENTS.md` (+ standards docs) **once**; keep a checklist.
+6. Check **consistency with existing codebase**, not only the isolated diff.
+7. Final gate always separates **`## Standards`** and **`## Spec`** — do not
+   blend into one ranked list.
+8. **Approval standard:** `PUSH-READY: yes` only when the change clearly
+   improves code health for the stated intent, with no open critical/high on
+   either axis. Imperfect-but-healthy can pass; wrong-or-dangerous cannot.
+9. When the Task/sub-agent tool exists, run Standards and Spec (and optionally
+   Correctness) as **parallel fresh sub-agents**. Inline fallback only if
+   sub-agents are unavailable.
+10. Scrutinize **tests as hard as production code** (false confidence is worse
+    than missing tests).
 
-## Step 0 — Recover the requirement
+## Step 0 — Intent (Spec seed)
 
-Before reviewing or coding, state the feature intent in 3–6 bullets:
+State in 3–6 bullets:
 
-- What user/system problem this solves
-- Success criteria (observable behavior)
-- Non-goals / out of scope
-- Relevant boundaries (API, DB, queue, auth, infra)
+- Problem / user-visible goal
+- Success criteria
+- Non-goals
+- Boundaries (API, DB, auth, infra)
 
-Sources (use what exists):
+Sources: user chat, commits, PR text, `FEATURE_SPEC.md` / `specs/` /
+`.scratch/`, issue refs in commits. If missing, ask **once** or list
+assumptions.
 
-- User’s description in chat
-- PR/commit messages if any
-- Diff + nearby tests/docs
-- Related tickets/links the user pasted
+This becomes the **Spec** axis input.
 
-If intent is unclear, ask **one** clarifying question, then proceed with an
-explicit assumption list.
+## Step 0b — Standards sources (once)
 
-## Step 0b — AGENTS.md verification (once)
+Collect, in order:
 
-Early in the session, **once**:
+1. `AGENTS.md` / `CLAUDE.md` pointers
+2. `CONTRIBUTING.md`, `CODING_STANDARDS.md`, ADRs, architecture docs
+3. Observed neighbor patterns in the files you will touch
+4. Always include the **smell baseline** in [reference-lenses.md](reference-lenses.md)
 
-1. Find and read `AGENTS.md` at the repo root (or the path `CLAUDE.md` /
-   other agent docs point to). If missing, note that and continue with repo
-   conventions you can observe.
-2. Extract a short checklist of rules that apply to this change (architecture
-   boundaries, testing commands, layering, style, “do not touch X”, etc.).
-3. Keep that checklist for the rest of the session. Verify each slice and the
-   integration pass against it. Flag violations as findings
-   (`[high]`/`[medium]` depending on severity).
+Build a short checklist you will reuse. Repo docs **override** the baseline
+where they conflict.
 
-Do **not** re-open `AGENTS.md` on every slice unless the user updates it or you
-discover you used the wrong file.
+## Step 0c — Pin the fixed point
 
-## Consistency with existing codebase
+| User said | Fixed point |
+|-----------|-------------|
+| `since <ref>` | that ref |
+| branch / PR review | `main`/`master`/`develop` merge-base (detect) |
+| uncommitted only | working tree vs `HEAD` (and staged) |
+| unspecified | ask once; default `main` if it exists else `HEAD~1` for committed WIP |
 
-For every slice (and again in the integration pass), compare new code to what
-already exists nearby:
-
-- Same patterns for errors, logging, auth, transactions, retries, IDs?
-- Naming, module placement, and layering match neighbors (e.g. app vs infra)?
-- Reuses existing helpers/types/services instead of parallel reimplementation?
-- Types/status enums/API shapes agree with callers and callees outside the diff?
-- Migrations/schema match how the rest of the DB layer is written?
-- Tests follow existing fixtures and style?
-
-Inconsistencies that will confuse maintainers or break invariants are findings,
-even if the new code “works” in isolation.
-
-## Mode: `review` (existing generated / uncommitted code)
-
-### 1. Inventory the change
+Validate:
 
 ```bash
+git rev-parse <fixed-point>
 git status
-git diff
-git diff --cached
+git diff <fixed-point>...HEAD    # committed range (three-dot)
+git diff                         # unstaged
+git diff --cached                # staged
+git log --oneline <fixed-point>..HEAD
 ```
 
-If the branch has commits ahead of base, also skim:
+Empty diff → stop (“nothing to review”).
 
-```bash
-git log --oneline <base>..HEAD
-git diff <base>...HEAD
-```
+---
 
-Group files into **slices** (small modules / concerns), e.g.:
+## Mode: `review`
 
-- slice A: data model / migration
-- slice B: service/domain logic
-- slice C: API/route wiring
-- slice D: tests
+### 1. Slice the change
 
-A slice should be reviewable in isolation (~one concern, often 1–3 files). Prefer
-more small slices over fewer large ones.
+Group into small concerns (often 1–3 files each): model, domain, API, worker,
+tests, etc. Prefer more small slices.
 
-Present the slice plan to the user, then review **one slice at a time**.
+Show the slice plan, then review **one slice at a time**.
 
-### 2. Per-slice review loop
+### 2. Per-slice loop (high-signal)
 
 For each slice:
 
-1. Summarize what this slice is supposed to do (tied to the requirement).
-2. Read the code carefully (not skim). Also read enough **existing** neighboring
-   code (callers, callees, similar modules) to judge consistency.
-3. Check against the **AGENTS.md checklist** from Step 0b.
-4. Check **normal cases**: expected inputs, typical control flow, return shapes,
-   status codes, persistence that should happen.
-5. Check **edge cases / failure modes** (always; invent concrete ones):
-   - empty/null/missing fields
-   - duplicates / retries / double-submit
-   - concurrency / ordering
-   - partial failure (DB ok, queue fail, etc.)
-   - authz / tenancy boundaries
-   - timeouts, cancellation, idempotency
-   - off-by-one, wrong comparison, inverted boolean
-   - error swallowed or wrong exception type
-6. Check **codebase consistency** (patterns, layering, duplication, contracts
-   with unchanged code).
-7. Report findings for **this slice only** using the format below.
-8. Fix critical/high issues (or get user accept) before the next slice.
+1. Intent of this slice vs overall Spec
+2. Read new code **and** neighbors (callers/callees/similar modules)
+3. Apply lenses (details in reference file):
+   - **Correctness** — happy + edge; races; wrong branch; state corruption
+   - **Spec fidelity** — missing / partial / wrong / scope creep *in this slice*
+   - **Standards / consistency** — AGENTS.md + patterns + smells
+   - **Security** — trust boundaries, authz, injection, secrets in logs
+   - **Performance** — N+1, unbounded, sync-on-async path
+   - **Tests** — do they fail if the bug exists? Only happy path?
+   - **AI-slop traps** — hallucinated APIs, dead code, swallowed errors,
+     duplicate helpers, speculative abstractions
+4. Report with the finding format below
+5. Fix critical/high (or user accepts) before next slice
 
-### 3. Integration pass (required)
+### 3. Integration pass
 
-After every slice is clean enough:
+- Cross-slice contracts (types, statuses, invariants)
+- End-to-end happy + failure traces
+- Shared state / ordering / idempotency / partial failure
+- Diff vs rest of codebase still coherent
+- AGENTS.md final sweep
 
-- Do the pieces agree on types, names, status values, and invariants?
-- Can slice B violate an assumption slice A relies on?
-- End-to-end happy path: does the feature actually work as required?
-- End-to-end failure path: one failure shouldn’t corrupt state or double-apply.
-- Tests: do they cover the risky edges, or only the happy path?
-- Full-diff vs **existing codebase**: any remaining pattern/contract drift?
-- Final sweep of the **AGENTS.md** checklist — anything still violated?
+### 4. Two-axis final gate (required)
 
-### 4. Push-ready verdict
+Spawn **parallel** sub-agents when possible (fresh context). Paste into each:
 
-End with:
+**Shared context:** fixed-point diff commands, commit list, intent bullets,
+AGENTS/standards paths, slice summary.
 
-- `PUSH-READY: yes` — no open critical/high issues
-- `PUSH-READY: no` — list remaining blockers
+**Standards agent** — follow Standards brief in [reference-lenses.md](reference-lenses.md)
+(include full smell baseline). Output under 500 words.
 
-## Mode: `build` (generate + review iteratively)
+**Spec agent** — follow Spec brief in reference file. If no spec/intent,
+report `no spec available` and list assumption gaps. Under 500 words.
 
-Use while implementing a feature:
+**Optional Correctness agent** (large or risky diffs) — security + concurrency +
+test-quality brief from reference file.
+
+Aggregate **verbatim under separate headings**:
+
+```markdown
+## Standards
+...
+
+## Spec
+...
+
+## Correctness (optional)
+...
+
+## Summary
+- Standards: N findings (worst: …)
+- Spec: N findings (worst: …)
+- PUSH-READY: yes | no
+- Blockers: …
+```
+
+Do **not** merge axes into one priority list.
+
+---
+
+## Mode: `build`
 
 ```
-Build loop:
-- [ ] 1. State / refine requirement (Step 0) + AGENTS.md once (Step 0b)
-- [ ] 2. Pick the SMALLEST next problem that unlocks progress
-- [ ] 3. Implement only that slice (match existing codebase patterns)
-- [ ] 4. Run the per-slice review (AGENTS.md + normal + edge + consistency)
-- [ ] 5. Fix findings
-- [ ] 6. Only then choose the next smallest problem
-- [ ] 7. When feature complete → integration pass → verdict
+- [ ] Intent + standards once
+- [ ] Smallest next problem
+- [ ] Implement only that slice (match codebase)
+- [ ] Per-slice review (all lenses)
+- [ ] Fix critical/high
+- [ ] Next slice
+- [ ] Integration + two-axis final gate
 ```
 
-**Smallest next problem** means the minimal coherent change (e.g. one function,
-one route handler, one schema field + validation) — not “the whole service.”
+Never “generate the whole feature then review once.”
 
-Do not draft the full feature in one shot and “review later.”
+---
 
-## Finding format (per slice)
+## Finding format
 
 ```markdown
 ### Slice: <name>
 Intent: <one line>
 
-AGENTS.md checks:
-- ...
-
-Codebase consistency:
-- ...
-
-Normal cases checked:
-- ...
-
-Edge cases checked:
-- ...
+Checked: happy | edge | standards | spec | security | perf | tests | ai-traps
 
 Findings:
-- [critical] `path:line` — <bug> — <why it fails> — <fix direction>
+- [critical] `path:line` — <bug> — <why it fails / evidence> — <fix>
 - [high] ...
 - [medium] ...
 - [low] ...
@@ -215,26 +217,40 @@ Findings:
 Slice status: blocked | fixed | accepted-with-risk
 ```
 
-Severity:
+| Severity | Meaning |
+|----------|---------|
+| critical | wrong behavior, data loss, security, likely crash |
+| high | real bug on plausible path; spec miss; broken invariant |
+| medium | should fix before push; missing important edge/test |
+| low | polish; never block alone |
 
-- **critical** — wrong behavior, data loss, security, crash in likely paths
-- **high** — real bug in plausible edge/normal path
-- **medium** — likely issue or missing safety; should fix before push
-- **low** — polish / clarity; don’t block unless easy
+**Noise control:** Cap low findings at ~5 per slice. If you only have lows and
+nits, say so and prefer `PUSH-READY: yes`.
+
+---
+
+## What “better than Codex defaults” means here
+
+Codex-quality reviews usually win by (a) separating **did we build the right
+thing?** from **did we build it in-house-correctly?**, (b) using a fixed diff
+base, and (c) hunting real failure modes. This skill keeps those and adds
+**slice-first iteration** + **AI-slop + test false-confidence** checks so agent
+output cannot rubber-stamp itself.
 
 ## Anti-patterns
 
-- One giant review of the full diff “for speed”
-- Only listing style/naming issues
-- Skipping happy-path reasoning (“looks fine”)
-- Skipping edge cases
-- Ignoring `AGENTS.md` or only checking the new files in isolation
-- Reimplementing utilities/patterns that already exist beside the change
-- Implementing the next slice while the current one still has open high+ findings
-- Rubber-stamping agent output because tests pass (tests may be shallow)
+- One giant review “for speed”
+- Blending Standards and Spec into one score
+- Style-only commentary
+- Approving because tests are green without reading them
+- Reviewing only new files, ignoring callers/callees
+- Re-reviewing in the same context that just wrote the code when a sub-agent
+  is available
+- Expanding scope while reviewing
 
 ## Coordination
 
-- Deep security pass → use a dedicated security review skill if available
-- Blind “find bugs in whole PR” bots → optional *after* push-ready slices are clean
-- This skill owns **iterative correctness** tied to the feature requirement
+- `implement-feature` / `thin-slice` — call push-ready mid-phase and at the end
+- `ponytail` — minimize code; push-ready still verifies correctness/spec
+- Dedicated security audit tools — optional extra after `PUSH-READY: yes` for
+  sensitive surfaces
