@@ -7,7 +7,7 @@ Personal agent skills (Claude Code, Codex, Cursor, and other [Agent Skills](http
 | `implement-feature` | Full pipeline: grill-me → spec → thin-slice (TDD) → plan → ponytail build + push-ready reviews |
 | `push-ready` | High-signal review: slice-first + Standards/Spec axes + correctness/security/AI-slop lenses |
 | `thin-slice` | Before a big feature: ship the smallest end-to-end working slice, then plan the rest from that reference |
-| `session-handoff` | At ~100k context (or on demand): write a handoff doc, stop, resume in a fresh chat via continue |
+| `session-handoff` | At ~100k context: write handoff to OS temp only, stop, resume in a fresh chat |
 | `code-explainer` | First-principles walkthrough of a module with multiple examples and how it fits the whole codebase |
 | `codebase-explainer` | Whole-repo tour from the critical core outward: examples, snippets, and end-to-end API/job traces |
 
@@ -44,8 +44,8 @@ npx skills update -g
 - `push-ready` / `push-ready review` / `push-ready since main` — slice-first review, then Standards vs Spec final gate
 - `push-ready build` — while implementing: smallest slice → implement → review → only then continue
 - `thin-slice <feature>` — prove the smallest working end-to-end path first, then write the full implementation plan from it
-- `session-handoff` / `/handoff` — when context ~100k (or on demand): write handoff doc and open a **new** chat
-- `session-handoff continue <path>` — resume from a handoff document in a fresh session
+- `session-handoff` / `/handoff` — ~100k context: write handoff to **OS temp**, open a new chat
+- `session-handoff continue <path>` — resume from that temp handoff
 - `code-explainer <path-or-topic>` — break down a module from first principles with multiple examples and system fit
 - `codebase-explainer` — foundation-up tour of the whole repo (critical module first, chapter by chapter)
 - `codebase-explainer focus <domain>` — same, but re-rank the core toward a domain
